@@ -1,4 +1,5 @@
 from typing import Dict, Any, List
+import sys
 
 class CSSProperty():
     def __init__(self, name, value):
@@ -12,16 +13,17 @@ class CSSProperty():
     def strip(self, value: str,  strip_of: str) -> str:
         return value[0:value.find(strip_of)] 
 
-    def to_theme(self) -> List[str]:
+    def to_theme(self) -> List:
         new_values = [] 
         for pos in range(len(self.values)):
             if 'rem' in self.values[pos]:
                 new_values.append(f"theme.spacing({str(float(self.strip(self.values[pos], 'rem')) * 2)})")
         return [self.name, new_values]
 
-    def parse_values(self) -> None:
+    def parse_values(self) -> List[str]:
         if "'" in self.unparsed_value:
             start_quote, end_quote = [pos for pos, char in enumerate(self.unparsed_value) if char == "'"]
+
             return self.unparsed_value[start_quote + 1 : end_quote].split(' ')
         else:
             return [self.unparsed_value]
@@ -63,7 +65,7 @@ class Cop():
     def translate(self, line) -> List[str]:
         return [line[0:line.find(':')].strip(' '), line[line.find(':') + 2: len(line) - 1]]
     
-    def reformat(self, culprit: int , name: str, values: List[str]) -> str:
+    def reformat(self, culprit: int , name: str, values: str) -> None:
         og = self.file.lines[culprit -1]
         comp = ''
         if len(values) > 1:
@@ -99,20 +101,27 @@ def get_lines(file_path):
 
     
 if __name__ == "__main__":
-    marginLeft = CSSProperty('marginLeft', "'1rem .5rem 1rem'")
-    file = File(get_lines('./tests/one.styles.ts'))
+    file_path = sys.argv[1]
+    option = sys.argv[2]
+    file = File(get_lines(file_path))
     cop = Cop(file, {"property_requires": {
         "margin": "theme.spacing",
         "marginLeft": "theme.spacing",
         "marginRight": "theme.spacing",
         "marginBottom": "theme.spacing",
         "padding": "theme.spacing",
-        "paddingRight": "teme.spacing",
+        "paddingRight": "theme.spacing",
         "paddingBottom": "theme.spacing",
         "paddingLeft": "theme.spacing",
     }})
     cop.investigate()
-    cop.reform()
+    if option == '--culprits':
+        print(cop.culprits)
+    elif option == '--count-culprits':
+        print(len(cop.culprits))
+    elif option == '--reform':
+        cop.investigate()
+        cop.reform()
 
 
 
