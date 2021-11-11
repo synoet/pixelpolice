@@ -28,8 +28,12 @@ class Cop():
         self.rules = rules
         self.suspects = []
 
+    def is_suspect(self, line):
+        return True if ':' in line and '{' not in line else False
+
+
     def is_legall(self, prop: CSSProperty):
-        required = self.rules["property_requires"][prop.name]
+        required = self.rules["property_requires"].get(prop.name)
 
         if not required: return True
 
@@ -43,12 +47,13 @@ class Cop():
 
         return True
 
-    def translate(self, line):
-        
 
+    def translate(self, line) -> List[str]:
+        return [line[0:line.find(':')].strip(' '), line[line.find(':') + 2: len(line) - 1]]
 
-    # def investigate(self):
-    #     return [pos for pos, line in enumerate(file.lines, 1) if is_legall(CSSProperty(translate(line)))]
+    def investigate(self) -> None:
+        self.culprits = [pos for pos, line in enumerate(self.file.lines, 1) if self.is_suspect(line) and not self.is_legall(CSSProperty(self.translate(line)[0], self.translate(line)[1]))]
+
 
 
 def get_lines(file_path):
@@ -68,6 +73,8 @@ if __name__ == "__main__":
         "paddingBottom": "theme.spacing",
         "paddingLeft": "theme.spacing",
     }})
+    cop.investigate()
+    print(cop.culprits)
 
 
 
