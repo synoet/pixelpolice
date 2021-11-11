@@ -4,7 +4,7 @@ class CSSProperty():
     def __init__(self, name, value):
         self.name = name
         self.unparsed_value = value
-        self.values = [] 
+        self.values = self.parse_values()
 
     def __str__(self) -> str:
         return f"CSS Property: {self.name}, Value: {self.unparsed_value}"
@@ -12,18 +12,19 @@ class CSSProperty():
     def strip(self, value: str,  strip_of: str) -> str:
         return value[0:value.find(strip_of)] 
 
-    def to_theme(self) -> None:
-        if not self.values: self.parse_values()
+    def to_theme(self) -> List[str]:
+        new_values = [] 
         for pos in range(len(self.values)):
             if 'rem' in self.values[pos]:
-                self.values[pos] = f"theme.spacing({str(float(self.strip(self.values[pos], 'rem')) * 2)})"
+                new_values.append(f"theme.spacing({str(float(self.strip(self.values[pos], 'rem')) * 2)})")
+        return [self.name, new_values]
 
     def parse_values(self) -> None:
         if "'" in self.unparsed_value:
             start_quote, end_quote = [pos for pos, char in enumerate(self.unparsed_value) if char == "'"]
-            self.values =self.unparsed_value[start_quote + 1 : end_quote].split(' ')
+            return self.unparsed_value[start_quote + 1 : end_quote].split(' ')
         else:
-            self.values = [self.unparsed_value]
+            return [self.unparsed_value]
 
 
 class File():
@@ -45,7 +46,6 @@ class Cop():
         return True if ':' in line and '{' not in line else False
 
     def is_legall(self, prop: CSSProperty):
-        prop.parse_values()
         required = self.rules["property_requires"].get(prop.name)
 
         if not required: return True
@@ -62,6 +62,18 @@ class Cop():
 
     def translate(self, line) -> List[str]:
         return [line[0:line.find(':')].strip(' '), line[line.find(':') + 2: len(line) - 1]]
+    
+    def reformat(self, culprit: int , name: str, values: List[str]) -> str:
+        og = self.file.lines[culprit -1]
+        comp = ''
+        if len(values) > 1:
+            for value in values:
+                comp = comp + value + ' ' 
+        
+        new_line = f"{og[0:og.find(name)]}{name}: {comp[0:-1]}, \n"
+        print(self.file.lines[culprit - 1])
+        print(new_line)
+
 
     def investigate(self) -> None:
         self.culprits = [pos for pos, line in enumerate(self.file.lines, 1) if self.is_suspect(line) and not self.is_legall(CSSProperty(self.translate(line)[0], self.translate(line)[1]))]
@@ -75,8 +87,8 @@ class Cop():
         for culprit in self.culprits:
             name, value = self.translate(self.file.lines[culprit - 1])
             css = CSSProperty(name, value)
-            css.to_theme()
-            print(css.values)
+            name, new_values = css.to_theme()
+            self.reformat(culprit, name, new_values)
 
 
 
