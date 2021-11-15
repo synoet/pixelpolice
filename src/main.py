@@ -1,5 +1,10 @@
 from typing import Dict, Any, List
+from utils.logger import print_banner, print_running_message, print_clean_message, print_dirty_message, erease_last_line
 import sys
+from glob import glob
+import os
+import time
+from colorama import Fore, Back, Style
 
 class CSSProperty():
     def __init__(self, name, value):
@@ -36,7 +41,6 @@ class File():
     def replace_line(self, line_content: str, line_number: int) -> None:
         self.lines[line_number] = line_content
 
-        
 
 class Cop():
     def __init__(self, file: File,  rules: Dict[str, Any]):
@@ -70,7 +74,8 @@ class Cop():
         comp = ''
         if len(values) > 1:
             for value in values:
-                comp = comp + value + ' ' 
+                comp = comp + "${" + value + '}px ' 
+        comp = f"`{comp}`"
         
         new_line = f"{og[0:og.find(name)]}{name}: {comp[0:-1]}, \n"
         print(self.file.lines[culprit - 1])
@@ -92,66 +97,64 @@ class Cop():
             name, new_values = css.to_theme()
             self.reformat(culprit, name, new_values)
 
-
-
-
-
 def get_lines(file_path):
     return open(file_path, 'r').readlines()
 
-    
+
+def search_files(root):
+    files = glob(root + '/**/*.styles.ts', recursive=True)
+    return files
+
 if __name__ == "__main__":
-    file_path = sys.argv[1]
-    option = sys.argv[2]
-    file = File(get_lines(file_path))
-    cop = Cop(file, {"property_requires": {
-        "margin": "theme.spacing",
-        "marginLeft": "theme.spacing",
-        "marginRight": "theme.spacing",
-        "marginBottom": "theme.spacing",
-        "padding": "theme.spacing",
-        "paddingRight": "theme.spacing",
-        "paddingBottom": "theme.spacing",
-        "paddingLeft": "theme.spacing",
-    }})
-    cop.investigate()
-    if option == '--culprits':
-        print(cop.culprits)
-    elif option == '--count-culprits':
-        print(len(cop.culprits))
-    elif option == '--reform':
+    start_time = time.time()
+    print_banner()
+    files_ran = 0
+    files_dirty = 0
+    files_clean = 0
+    lines_dirty = 0
+    lines_clean = 0
+    lines_ran = 0
+    for file in search_files('/home/nysteo/dev/cox/dri-frontend/packages/consumer-checkout/src/pages'):
+        print_running_message(file[len('/home/nysteo/dev/cox/dri-frontend/packages/consumer-checkout/src'): len(file)])
+        files_ran += 1
+        file_ins = File(get_lines(file))
+        lines_ran += len(file_ins.lines)
+        cop = Cop(file_ins, {"property_requires": {
+            "margin": "theme.spacing",
+            "marginLeft": "theme.spacing",
+            "marginRight": "theme.spacing",
+            "marginBottom": "theme.spacing",
+            "padding": "theme.spacing",
+            "paddingRight": "theme.spacing",
+            "paddingBottom": "theme.spacing",
+            "paddingLeft": "theme.spacing",
+        }})
         cop.investigate()
-        cop.reform()
+        if len(cop.culprits) == 0:
+            print_clean_message(file[len('/home/nysteo/dev/cox/dri-frontend/packages/consumer-checkout/src'): len(file)])
+            print("\n", end="")
+            lines_clean += len(file_ins.lines)
+            files_clean += 1
+        else:
+            print_dirty_message(file[len('/home/nysteo/dev/cox/dri-frontend/packages/consumer-checkout/src'): len(file)])
+            files_dirty += 1 
+            output = ""
 
+            counter = 0
+            for culprit in cop.culprits:
+                counter += 1 
+                lines_dirty += 1
+                output += f"{culprit}  "
+            lines_clean += len(file_ins.lines) - counter
 
+            print(f"{Fore.RED}- Culprit Lines: {output}")
 
+    print("\n")
+    print(f"\033[1m{Fore.WHITE}Files: {Fore.RED}{files_dirty} dirty, {Fore.GREEN}{files_clean} clean{Fore.WHITE}{Style.DIM} of {files_ran} files{Style.RESET_ALL}")
+    print(f"\033[1m{Fore.WHITE}Lines: {Fore.RED}{lines_dirty} dirty, {Fore.GREEN}{lines_clean} clean{Fore.WHITE}{Style.DIM} of {lines_ran} lines{Style.RESET_ALL}")
+    print(f"\033[1m{Fore.WHITE}Time: {round(time.time() - start_time, 2)} seconds")
 
-# def is_line_faulty(line):
-#     return True if ':' in line and line[0:line.find(':')].strip(' ') in target_classes and 'theme.spacing' not in line else False
+    
 
+                
 
-# def corrector(line, counter):
-#     instances = []
-#     ip= [pos for pos, char in enumerate(line) if char == "'"]
-#     if ip:
-#         instances = line[ip[0] + 1 :ip[1]].split(' ')
-#         for instance in instances:
-#             if 'rem' in instance:
-#                 value = instance[0:instance.find('rem')]
-#                 spacing_value = (float(value) * 2)
-#                 print(line)
-#                 print(f"line {counter} : {instance} changed to -> theme.spacing({spacing_value})")
-
-
-
-# def investigator():
-#     """
-#         Finds and returns a list of line numbers that are faulty
-#     """
-
-#     return [pos for pos, line in enumerate(get_lines('./tests/one.styles.ts'), 1) if is_line_faulty(line)]
-
-
-# def pixeler():
-#     faulty_lines = investigator()
-#     print(faulty_lines)
