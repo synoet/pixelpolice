@@ -26,7 +26,9 @@ class CSSProperty():
         return [self.name, new_values]
 
     def parse_values(self) -> List[str]:
-        if "'" in self.unparsed_value:
+        paren = [pos for pos, char in enumerate(self.unparsed_value) if char == "'"]
+
+        if "'" in self.unparsed_value and len(paren) > 1:
             start_quote, end_quote = [pos for pos, char in enumerate(self.unparsed_value) if char == "'"]
 
             return self.unparsed_value[start_quote + 1 : end_quote].split(' ')
@@ -47,9 +49,13 @@ class Cop():
         self.file = file
         self.rules = rules
         self.culprits = []
+        self.violations = []
 
     def is_suspect(self, line):
         return True if ':' in line and '{' not in line else False
+
+    def get_violation(self, line):
+       print(line) 
 
     def is_legall(self, prop: CSSProperty):
         required = self.rules["property_requires"].get(prop.name)
@@ -59,9 +65,11 @@ class Cop():
         if len(prop.values) > 1:
             for value in prop.values:
                 if required not in value:
+                    self.violations.append(f"{prop.name} requires {required}")
                     return False
         else:
             if required not in prop.values[0]:
+                self.violations.append(f"{prop.name}-requires-{required}")
                 return False
 
         return True
@@ -114,7 +122,7 @@ if __name__ == "__main__":
     lines_dirty = 0
     lines_clean = 0
     lines_ran = 0
-    for file in search_files('/home/nysteo/dev/cox/dri-frontend/packages/consumer-checkout/src/pages'):
+    for file in search_files('/home/nysteo/dev/cox/dri-frontend/packages/consumer-checkout/src'):
         print_running_message(file[len('/home/nysteo/dev/cox/dri-frontend/packages/consumer-checkout/src'): len(file)])
         files_ran += 1
         file_ins = File(get_lines(file))
@@ -147,7 +155,10 @@ if __name__ == "__main__":
                 output += f"{culprit}  "
             lines_clean += len(file_ins.lines) - counter
 
-            print(f"{Fore.RED}- Culprit Lines: {output}")
+            for idx in range(len(cop.culprits) - 1):
+                print(f"  {Fore.RED}violation:{Fore.WHITE}{Style.NORMAL} line {cop.culprits[idx]} violates rule: {Style.BRIGHT}{cop.violations[idx]}{Style.RESET_ALL}")
+            print("\n", end=" ")
+
 
     print("\n")
     print(f"\033[1m{Fore.WHITE}Files: {Fore.RED}{files_dirty} dirty, {Fore.GREEN}{files_clean} clean{Fore.WHITE}{Style.DIM} of {files_ran} files{Style.RESET_ALL}")
